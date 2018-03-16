@@ -1,9 +1,14 @@
 
-class Server:
-    
+# python imports
+import random
+
+# my file imports
+from utils import *
+
+class Server: 
     # init with a server id
     # @param s_id - server id (letter a-e)
-    def __init__(s_id):
+    def __init__(self, s_id):
         # id of this server
         self.id = s_id
         # timeout for starting a new election as random time between 150ms and 300ms
@@ -20,7 +25,7 @@ class Server:
         # current known term
         self.term = 0
         # known log of events
-        self.log = {}
+        self.log = [] 
 
     # function to simulate a failure of this server node
     def fail():
@@ -58,4 +63,23 @@ class Server:
         print('receive_client_request not yet implemented')
 
 if __name__ == '__main__':
-    print('Server not at all implemented.')
+    server = Server('a')
+
+    # test create_log_entry   
+    server.log.append(create_log_entry('1', '0', 'q'))
+    server.log.append(create_log_entry('1', '0', 'w'))
+    server.log.append(create_log_entry('1', '0', 's'))
+    print('Log:', server.log)
+
+    # test create_request_message
+    print('Request:', create_request_message('b', server.id, '2', server.log[2]))
+
+    # test create_request_reply
+    print('Request Reply:', create_request_reply('a', 'b', True))
+    
+    # test create_append_message
+    print('Append Entries:', create_append_message('b', server.id, '1', server.log[1:]))
+
+    # test create_append_reply
+    print('Append Entries Reply:', create_append_reply('a', 'b', True))
+
