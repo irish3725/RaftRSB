@@ -54,15 +54,15 @@ class Server:
         # get sender 
         message_sender = request_vote_message[1]
         # get index of last entry
-        message_log_index = request_vote_message[2]
+        message_log_index = int(request_vote_message[2])
         # get last entry
         message_log_entry = request_vote_message[3]
         # get new term
-        message_term = request_vote_message[4]
+        message_term = int(request_vote_message[4])
         # create empty reply message
         reply = ''
         # make sure we haven't voted yet
-        if self.voted_for == None and self.term < int(message_term):
+        if self.voted_for == None and self.term < message_term:
             self.term = message_term
             self.voted_for = message_sender
             reply += create_request_reply(message_sender, self.id, True)
@@ -78,8 +78,25 @@ class Server:
 
     # handle receiving append_entries message by comparing
     # the last index of received log to local log
-    def receive_append_entries():
-        print('receive_append_entries not yet implemented')
+    def receive_append_entries(self, append_message):
+        append_message = json.loads(append_message[1:])
+        # get sender
+        message_sender = append_message[1]
+        # get log_index
+        message_log_index = int(append_message[2])
+        # get log_after_index
+        message_log_after_index = append_message[3] 
+        # create empty reply message 
+        reply = ''
+        # check to see if we have this entry
+#        print('local last index:', len(self.log) - 1, 'rec log index:', message_log_index, 'log entry at index:', self.log[message_log_index], 'message_log_entry:', message_log_after_index[0])
+        print('local last index:', len(self.log) - 1, 'rec log index:', message_log_index, 'log:', self.log, 'message_log:', message_log_after_index)
+        if len(self.log) - 1 >= message_log_index and self.log[message_log_index] == message_log_after_index[0]:
+            reply += create_append_reply(message_sender, self.id, True)
+        else:
+            reply += create_append_reply(message_sender, self.id, False)
+
+        print('\tReply:', reply)
 
     # handle request from client
     def receive_client_request():

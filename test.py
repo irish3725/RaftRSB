@@ -58,10 +58,24 @@ def test_Server():
     print('Append Entries Reply:', append_reply)
 
     # test receive_request_vote
-    print('First receive_request_vote()')
+    print('\n____receive_request_vote test____\nFirst receive_request_vote()')
     server.receive_request_vote(request_message)
-    print('Second receive_request_vote()')
+    print('\nSecond receive_request_vote()')
     server.receive_request_vote(request_message)
+
+    # test receive_append_message
+    print('\n____receive_append_message test____\nSuccessful receive_append_message():')
+    message = create_append_message('a', 'b', '1', server.log[1:])
+    server.receive_append_entries(message)
+    
+    print('\nUnsuccessful receive_append_message():')
+    entry = create_log_entry('9', '1', 'w')
+    new_log = []
+    new_log.append(entry)
+    message = create_append_message('a', 'b', '3', new_log)
+    server.receive_append_entries(message)
+
+
 
 if __name__ == '__main__':
     test_utils()
