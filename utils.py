@@ -7,9 +7,9 @@ def create_log_entry(term, requestor, action):
     return([term, requestor, action])
 
 # returns request_vote (string) message in the form of:
-#   <receiver_id>[0, <sender_id>, <log_index>, <log_entry>]
-def create_request_message(receiver, sender, log_index, log_entry):
-    message_contents = json.dumps(['0', sender, log_index, log_entry])
+#   <receiver_id>[0, <sender_id>, <log_index>, <log_entry>, <new_term>]
+def create_request_message(receiver, sender, log_index, log_entry, new_term):
+    message_contents = json.dumps(['0', sender, log_index, log_entry, new_term])
     return(receiver + message_contents)
 
 # returns request_vote_reply (string) message in the form of:

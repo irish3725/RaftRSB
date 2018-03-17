@@ -1,6 +1,7 @@
 
 # python imports
 import random
+import json
 
 # my file imports
 from utils import *
@@ -46,8 +47,29 @@ class Server:
         print('begin_elections not yet implemented')
         
     # handle the receiving of request vote message
-    def receive_request_vote():
-        print('receive_request_vote not yet implemented')
+    def receive_request_vote(self, request_vote_message):
+        # turn message back into list
+        request_vote_message = json.loads(request_vote_message[1:])
+        # get sender 
+        message_sender = request_vote_message[1]
+        # get index of last entry
+        message_log_index = request_vote_message[2]
+        # get last entry
+        message_log_entry = request_vote_message[3]
+        # get new term
+        message_term = request_vote_message[4]
+        # create empty reply message
+        reply = ''
+        # make sure we haven't voted yet
+        if self.voted_for == None and self.term < int(message_term):
+            self.term = message_term
+            self.voted_for = message_sender
+            reply += create_request_reply(message_sender, self.id, True)
+        # if we have already voted, send false reply
+        else:
+            reply += create_request_reply(message_sender, self.id, False)
+    
+        print('\tReply:', reply)
 
     # send append_entries message to all followers
     def send_append_entries():
@@ -72,14 +94,24 @@ if __name__ == '__main__':
     print('Log:', server.log)
 
     # test create_request_message
-    print('Request:', create_request_message('b', server.id, '2', server.log[2]))
+    request_message = create_request_message('b', server.id, '2', server.log[2], '1')
+    print('Request:', request_message)
 
     # test create_request_reply
-    print('Request Reply:', create_request_reply('a', 'b', True))
+    request_reply = create_request_reply('a', 'b', True)
+    print('Request Reply:', request_reply)
     
     # test create_append_message
-    print('Append Entries:', create_append_message('b', server.id, '1', server.log[1:]))
+    append_message = create_append_message('b', server.id, '1', server.log[1:])
+    print('Append Entries:', append_message)
 
     # test create_append_reply
-    print('Append Entries Reply:', create_append_reply('a', 'b', True))
+    append_reply = create_append_reply('a', 'b', True)
+    print('Append Entries Reply:', append_reply)
+
+    # test receive_request_vote
+    print('First receive_request_vote()')
+    server.receive_request_vote(request_message)
+    print('Second receive_request_vote()')
+    server.receive_request_vote(request_message)
 
