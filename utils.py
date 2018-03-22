@@ -4,7 +4,7 @@ import json
 # creates log entry (list) in the form of:
 #   [<term>, <requestor>, <action>]
 def create_log_entry(term, requestor, action):
-    return([term, requestor, action])
+    return([term, requestor, action, '0'])
 
 # returns request_vote (string) message in the form of:
 #   <receiver_id>[0, <sender_id>, <log_index>, <log_entry>, <new_term>]
