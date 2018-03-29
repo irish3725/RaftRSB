@@ -1,5 +1,12 @@
 
 import json
+import random
+
+# returns a random number between 8 and 10
+def get_timeout():
+    timeout = random.uniform(20,40)
+    print('new timeout in', int(timeout), 'seconds.')
+    return timeout
 
 # creates log entry (list) in the form of:
 #   [<term>, <requestor>, <action>]
@@ -19,9 +26,9 @@ def create_request_reply(receiver, sender, vote):
     return(receiver + message_contents)
 
 # returns append_entries (string) message in the form of:
-#   <receiver_id>[2, <sender_id>, <log_index>, <log_after(and including)_index>]
-def create_append_message(receiver, sender, log_index, log_after_index):
-    message_contents = json.dumps(['2', sender, log_index, log_after_index])
+#   <receiver_id>[2, <sender_id>, <log_index>, <log_after(and including)_index>, <term>]
+def create_append_message(receiver, sender, log_index, log_after_index, term):
+    message_contents = json.dumps(['2', sender, log_index, log_after_index, term])
     return(receiver + message_contents)
 
 # returns append_entries_reply (string) message in the form of:
