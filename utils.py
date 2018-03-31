@@ -32,8 +32,19 @@ def create_append_message(receiver, sender, log_index, log_after_index, term):
     return(receiver + message_contents)
 
 # returns append_entries_reply (string) message in the form of:
-#   <receiver_id>[3, <sender_id>, <appended (true, false)>]
-def create_append_reply(receiver, sender, appended):
-    message_contents = json.dumps(['3', sender, appended])
+# returns append_entries_reply (string) message in the form of:
+#   <receiver_id>[3, <sender_id>, <last_add_index(last commit if no add)>]
+def create_append_reply(receiver, sender, last_add_index):
+    message_contents = json.dumps(['3', sender, last_add_index])
+    return(receiver + message_contents)
+
+#   <receiver_id>[4, <sender_id>, <action(q/w/a/s)>]
+def create_client_request(receiver, sender, action):
+    message_contents = json.dumps(['4', sender, action])
+    return(receiver + message_contents)
+
+#   <receiver_id>[4, <sender_id>, <commit_index>, <entry_to_commit>]
+def create_commit_message(receiver, sender, index, entry):
+    message_contents = json.dumps(['5', sender, index, entry])
     return(receiver + message_contents)
 

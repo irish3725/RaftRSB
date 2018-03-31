@@ -8,6 +8,7 @@ import threading
 import time
 
 # my file imports
+import ui
 from utils import *
 from test import *
 
@@ -65,19 +66,48 @@ class Server:
         self.term = 0
         # known log of events
         self.log = [] 
-        # print init output
+        # count of known adds for commiting
+        self.adds = []
+        # index of last commit on this machine
+        self.commit_index = -1
 
-    # function to simulate a failure of this server node
+    ## function to randomly decide to generate client request
+    def generate_cleint_request(self):
+        # roll random number between 0 and 1000
+        roll = int(random.uniform(0,500))
+        if roll == 1 and self.leader != None:
+            print('\n!!!!!!!creating client request!!!!!!!\n')
+            # choose a random action 
+            action = int(random.uniform(0,3))
+            if action == 0:
+                action = 'q'
+            elif action == 1:
+                action = 'w'
+            elif action == 2:
+                action = 'a'
+            elif action == 3:
+                action = 's'
+
+            # choose a random player
+            player = 'p' + str(int(random.uniform(1,3)))
+           
+            # create client request and send to leader
+            message = create_client_request(self.leader, player, action)
+            self.send_message(message)
+
+    ## function to simulate a failure of this server node
     def fail(self):
-        print('fail not yet implemented')
+        if self.state != 'failed':
+            print('\nnode failed\n')
+            self.state = 'failed'
 
-    # function to simulate a recover of this server node after failure
+    ## function to simulate a recover of this server node after failure
     def recover(self):
-        print('recover not yet implemented')
-
-    # function to simulate a timeout at this server node
-    def timeout(self):
-        print('timeout not yet implemented')
+        self.clear_queue()
+        if self.state == 'failed':
+            print('\nnode recovered. Going back to follower state\n')
+            self.timeout = time.time() + get_timeout()
+            self.state = 'follower'
 
     # begin election by setting voted_for to self,
     # incrementing current term, and setting state
@@ -87,11 +117,18 @@ class Server:
         self.voted_for = self.id
         self.votes = 1
         print('Beginning election')
+        # create proposed term
         new_term = self.term + 1
-        log_entry = []
-        log_index = len(self.log) - 1 
-        if log_index >= 0:
-            log_entry = self.log[log_index]
+        # if there are committed values in the log
+        if self.log and self.commit_index != -1:
+            # get last committed entry
+            log_entry = self.log[self.commit_index]
+            log_index = self.commit_index 
+        # else send empyt entry and -1 for commit index
+        else:
+            log_entry = []
+            log_index = -1
+
         for i in range(self.processes):
             if str(i) != self.id:
                 message = create_request_message(str(i), self.id, log_index, log_entry, new_term)
@@ -118,10 +155,17 @@ class Server:
                 self.voted_for = None
                 self.term += 1
                 self.state = 'leader'
+                
+                # initialize new adds list of size of committed log and filled with 0s
+                self.adds = [0 for x in range(self.commit_index + 1)]
+                # remove all noncommitted values from our log
+                while len(self.log) - 1 > self.commit_index:
+                    self.log.pop()
+
+                
 #                self.send_append_entries()
                 print('I am leader now')
         else:
-            print('I\'m not running. Ignoring vote')
             return
 
     # handle the receiving of request vote message
@@ -138,8 +182,24 @@ class Server:
         message_term = int(request_vote_message[4])
         # create empty reply message
         reply = ''
-        # make sure we haven't voted yet
-        if self.voted_for == None and self.term < message_term:
+
+        # separate if to handle vote before first commit
+        if (self.voted_for == None and self.term < message_term and
+                self.commit_index == -1):
+
+            self.voted_for = message_sender
+            self.state = 'election'
+            reply += create_request_reply(message_sender, self.id, True)
+            self.timeout = time.time() + get_timeout()
+        # make sure we haven't voted yet, this is a new term, 
+        # and the proposed largest committed index is at least
+        # large as ours also check for if our commit_index is 
+        # behind or they have the same last committed value
+        elif (self.voted_for == None and self.term < message_term and 
+                self.commit_index <= message_log_index and 
+                (self.commit_index < message_log_index or 
+                self.log[message_log_index] == message_log_entry)): 
+
             self.voted_for = message_sender
             self.state = 'election'
             reply += create_request_reply(message_sender, self.id, True)
@@ -153,16 +213,19 @@ class Server:
 
     ## send append_entries message to all followers
     ## @param index, index of last seen entry
-    def send_append_entries(self):
-
-        print('sending append entries at', int(time.time()))
+    def send_append_entries(self, index=None):
 
         # reset timeout
         self.timeout = time.time() + get_timeout()
         
-        index= len(self.log) - 2
+        # if index not given, set index to before newest message
+        if index == None:
+            index= len(self.log) - 2
+
+        # if new index is less than 0, set to 0 to send all entries
         if index < 0:
             index = 0
+
         # create and send messages to all other processes
         for i in range(0,self.processes):
             if str(i) != self.id:
@@ -179,6 +242,7 @@ class Server:
         message_sender = append_message[1]
         # get term
         message_term = append_message[4]
+
         # if we are in an election, set new leader,
         if message_term > self.term or (message_term == self.term and self.state == 'election'):
             self.leader = message_sender
@@ -187,29 +251,130 @@ class Server:
             self.votes = 0
             self.term = message_term
             print('my new leader is', message_sender)
+
         # get log_index
         message_log_index = int(append_message[2])
         # get log_after_index
         message_log_after_index = append_message[3] 
-        # create empty reply message 
-        reply = ''
-        # check to see if we have this entry
-        print('local last index:', len(self.log) - 1, 'rec log index:', message_log_index, 'log:', self.log, 'message_log:', message_log_after_index)
-        if len(self.log) - 1 >= message_log_index and self.log[message_log_index] == message_log_after_index[0]:
-            reply += create_append_reply(message_sender, self.id, True)
+
+        # make sure doesn't have an empty log
+        if message_log_after_index:
+
+            # boolean for if we have to reply (we did add something or we need more info)
+            reply = False
+            # check to see if we have this entry
+            print('local last index:', len(self.log) - 1, 'rec log index:', message_log_index, 'log:', self.log, 'message_log:', message_log_after_index)
+
+            # index of last add for reply message
+            index = 0
+
+            # handle having an empty log.
+            if len(self.log) == 0 and message_log_index == 0:
+                # if there actually is something in the log
+                for entry in message_log_after_index:    
+                    term = entry[0]
+                    player = entry[1]
+                    action = entry[2]
+                    self.add_to_log(term, player, action)
+                    reply = True
+
+            # if we have seen the first value in message_log_index
+            elif len(self.log) > message_log_index and self.log[message_log_index] == message_log_after_index[0]:
+                # get index that we are adding at
+                index = message_log_index
+                # add all following values 
+                for entry in message_log_after_index:    
+                    # ignore entry if we already have it, write if we dont
+                    if index > len(self.log) - 1 or entry != self.log[index]:
+                        term = entry[0]
+                        player = entry[1]
+                        action = entry[2]
+                        self.add_to_log(term, player, action, index)
+                        reply = True
+                    # increment index in our log for comparing
+                    index += 1
+                # decrement index once after loop
+                index -= 1
+            # if we haven't seen that value yet, tell sender
+            # the last value that we know that we have seen
+            else:
+                index = self.commit_index
+                reply = True
+
+            # only reply if we have added any entries
+            if reply:
+                # create reply message
+                reply = create_append_reply(message_sender, self.id, index)
+                # send reply to sender of append
+                self.send_message(reply)
+
+    ## handle append reply
+    def receive_append_reply(self, message):
+
+        message = json.loads(message[1:])
+        sender = message[1]
+        index = message[2]
+
+        # if we know of value greater than returned index
+        if len(self.log) - 1 > index:
+            # send new append entries starting at that index
+            self.send_append_entries(index)
+
+        # we only care about index if we haven't committed yet
+        if index > self.commit_index:
+            # increment that spot in self.adds to count add
+            self.adds[index] += 1
+
+            # if we have seen a majority of adds, commit
+            if self.adds[index] > self.processes / 2:
+                self.commit_entry(index)
+                print('committed entry, new commit_index =', self.commit_index)
+            
+    ## handle committing an entry
+    def commit_entry(self, index):
+        # change commit_index to index
+        self.commit_index = index
+        for i in range(5):
+            if str(i) != self.id:
+                message = create_commit_message(str(i), self.id, self.commit_index, self.log[self.commit_index])
+                self.send_message(message)
+
+    ## handle receiving commit message
+    def receive_commit_message(self, commit_message):
+        commit_message = json.loads(commit_message[1:])
+        index = commit_message[2]
+        entry = commit_message[3]
+        # if we have this entry, commit it
+        if len(self.log) > index and self.log[index] == entry:
+            self.commit_index = index
+            print('!! new commit index is', self.commit_index, '!!')
+
+    ## handle request from client
+    def receive_client_request(self, client_request):
+        print('\nclient request:', client_request)
+        client_request = json.loads(client_request[1:])
+        player = client_request[1]
+        action = client_request[2]
+        self.add_to_log(self.term, player, action)
+        self.send_append_entries()
+
+    ## add to log
+    def add_to_log(self, term, player, action, index=None):
+        entry = [term, player, action] 
+        print('\nnew entry:', entry)
+
+        # if the index is right after the log or no index given, append
+        if index == len(self.log) or index == None:
+            self.log.append(entry)
+            self.adds.append(1)
+        # else if index is before end of log, replace entry
+        elif index < len(self.log):
+            self.log[index] = entry
         else:
-            print('Nothing new here')
-            reply += create_append_reply(message_sender, self.id, False)
+            self.log.append(entry)
+            print('log is missing an entry')
 
-        print('\tReply:', reply)
-
-
-    def receive_append_reply(self, reply_message):
-        print('receive_append_reply not yet implemeted')
-
-    # handle request from client
-    def receive_client_request(self):
-        print('receive_client_request not yet implemented')
+        print('\nnew log:', self.log)
 
     ## clear queue of messages from last run
     ## @param del_all - if False, only delete messages for this process
@@ -248,55 +413,65 @@ class Server:
         heartbeat_time = time.time() + 15
         self.clear_queue()
         print('Begin polling...')
-        self.timeout = time.time() + random.uniform(5)
+        self.timeout = time.time() + random.uniform(0, 5)
         while self.poll:
 
-            if self.state == 'leader' and time.time() > heartbeat_time:
-                print('sending  heartbeat')
-                heartbeat_time = time.time() + 15
-                self.send_append_entries()
+            if self.state != 'failed':
 
-            # check for timeout
-            if time.time() > self.timeout:
-                # if timeout, call timeout 
-                self.to()
-                self.timeout_count += 1
-                if self.timeout_count > 10:
-                    self.poll = False
-                    
-            # receive message
-            response = self.sqs.receive_message(QueueUrl=self.q_url[my_queue],)
-            if 'Messages' in response.keys():
-                # get message from queue as string
-                message = response['Messages'][0]
-                # get receipt handle for deletion
-                receipt_handle = message['ReceiptHandle']
-                # get message text
-                message = message.get('Body')
+                self.generate_cleint_request()
 
-                # check to see if this message is for me
-                if message[:1] == self.id:
-                    self.timeout = time.time() + get_timeout()
-                    print('This message is for me:')
-                    # check to see if it is a request election
-                    if json.loads(message[1:])[0] == "0":
-                        print('received request_vote')
-                        self.receive_request_vote(message)
-                    elif json.loads(message[1:])[0] == "1":
-                        print('received request_vote reply')
-                        self.receive_election_reply(message)
-                    elif json.loads(message[1:])[0] == "2":
-                        print('received append entries')
-                        self.receive_append_entries(message)
-                    elif json.loads(message[1:])[0] == "3":
-                        print('received append reply')
-                        self.receive_append_reply(message)
-                    else:
-                        print('don\'t recognize this message:\n\t' + message[1:])
-                    # print received message
-                    print('\nmessage:', message)
-                    # delete received message
-                    self.sqs.delete_message(QueueUrl=self.q_url[my_queue], ReceiptHandle=receipt_handle)
+                if self.state == 'leader' and time.time() > heartbeat_time:
+                    print('sending  heartbeat')
+                    heartbeat_time = time.time() + 15
+                    self.send_append_entries()
+
+                # check for timeout
+                if time.time() > self.timeout:
+                    # if timeout, call timeout 
+                    self.to()
+                    self.timeout_count += 1
+                    if self.timeout_count > 10:
+                        self.poll = False
+                        
+                # receive message
+                response = self.sqs.receive_message(QueueUrl=self.q_url[my_queue],)
+                if 'Messages' in response.keys():
+                    # get message from queue as string
+                    message = response['Messages'][0]
+                    # get receipt handle for deletion
+                    receipt_handle = message['ReceiptHandle']
+                    # get message text
+                    message = message.get('Body')
+
+                    # check to see if this message is for me
+                    if message[:1] == self.id:
+                        self.timeout = time.time() + get_timeout()
+                        print('This message is for me:')
+                        # check to see if it is a request election
+                        if json.loads(message[1:])[0] == "0":
+                            print('received request_vote')
+                            self.receive_request_vote(message)
+                        elif json.loads(message[1:])[0] == "1":
+                            print('received request_vote reply')
+                            self.receive_election_reply(message)
+                        elif json.loads(message[1:])[0] == "2":
+                            print('received append entries')
+                            self.receive_append_entries(message)
+                        elif json.loads(message[1:])[0] == "3":
+                            print('received append reply')
+                            self.receive_append_reply(message)
+                        elif json.loads(message[1:])[0] == "4" and self.state == 'leader':
+                            print('received client_request')
+                            self.receive_client_request(message)
+                        elif json.loads(message[1:])[0] == "5":
+                            print('received commit_message')
+                            self.receive_commit_message(message)
+                        else:
+                            print('don\'t recognize this message:\n\t' + message[1:])
+                        # print received message
+                        print('\nmessage:', message)
+                        # delete received message
+                        self.sqs.delete_message(QueueUrl=self.q_url[my_queue], ReceiptHandle=receipt_handle)
 
     ## timeout method
     def to(self):
@@ -314,7 +489,7 @@ class Server:
             self.timeout += 20
             self.state = 'follower'
         # if we were not in an election, start an election
-        else:
+        elif self.state != 'failed':
             self.state = 'election'
             self.begin_election()
 
@@ -330,11 +505,13 @@ if __name__ == '__main__':
     # if given input, set as id
     if len(sys.argv) > 1 and sys.argv[1] != 'clear':
         server = Server(sys.argv[1])
+        ui = ui.ui(server)
         # create list of threads
         threads_L = []
 
         # create thread for polling
         threads_L.append(threading.Thread(name='poll', target=server.poll_queue))
+        threads_L.append(threading.Thread(name='ui', target=ui.run))
             
         # start threads
         for thread in threads_L:
