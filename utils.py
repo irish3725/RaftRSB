@@ -5,7 +5,7 @@ import random
 # returns a random number between 8 and 10
 def get_timeout():
     timeout = random.uniform(20,40)
-    print('new timeout in', int(timeout), 'seconds.')
+    #print('new timeout in', int(timeout), 'seconds.')
     return timeout
 
 # creates log entry (list) in the form of:
@@ -46,5 +46,15 @@ def create_client_request(receiver, sender, action):
 #   <receiver_id>[4, <sender_id>, <commit_index>, <entry_to_commit>]
 def create_commit_message(receiver, sender, index, entry):
     message_contents = json.dumps(['5', sender, index, entry])
+    return(receiver + message_contents)
+
+#   <receiver_id>[4, <sender_id>, <commit_index>, <entry_to_commit>]
+def create_end_message(receiver):
+    message_contents = json.dumps(['6'])
+    return(receiver + message_contents)
+
+#   <receiver_id>[4, <sender_id>, <message_type>, <message>]
+def create_server_message(receiver, message_type, message):
+    message_contents = json.dumps(['7', message_type, message])
     return(receiver + message_contents)
 

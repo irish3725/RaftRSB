@@ -13,7 +13,7 @@ class ui:
         val = ''
 
         while val != 'q' and val != 'quit' and val != 'exit':
-            val = input('(fail/recover/timeout) > ').lower()
+            val = input('(fail/recover/timeout/quit) > ').lower()
 
             # adding an event
             if val == 'fail':
@@ -25,4 +25,6 @@ class ui:
             if val == 'timeout':
                 self.server.to()
                 val = ''
+
+        self.server.poll = False
 
