@@ -12,7 +12,7 @@ class ui:
         # value to read input into 
         val = ''
 
-        while val != 'q' and val != 'quit' and val != 'exit':
+        while val != 'q' and val != 'quit' and val != 'exit' and self.server.poll:
             val = input('(fail/recover/timeout/quit) > ').lower()
 
             # adding an event
@@ -22,7 +22,7 @@ class ui:
             if val == 'recover':
                 self.server.recover()
                 val = ''
-            if val == 'timeout':
+            if val == 'timeout' or val == 'to':
                 self.server.to()
                 val = ''
 

@@ -77,7 +77,7 @@ class Server:
         self.commit_index = -1
 
         # client things
-        self.players = ['block_left', 'block_left']
+        self.players = [[0,0], [0,0]]
         self.ko_rate = 5 
 
     ## function to randomly decide to generate client request
@@ -368,7 +368,8 @@ class Server:
        
         # get new state if changed
         if action == 'a':
-            self.players[player] = 'block_left'
+            # change timestamp for left block to current time
+            self.players[player][0] = int(time.time())
             print('\nSTATE CHANGE\n', self.log[self.commit_index][1], ':', self.players[player], '\n')
 
             message = '\tblocking left\n'
@@ -376,7 +377,7 @@ class Server:
             self.send_message(m)
 
         elif action == 's':
-            self.players[player] = 'block_right'
+            self.players[player][1] = int(time.time())
             print('\nSTATE CHANGE\n', self.log[self.commit_index][1], ':', self.players[player], '\n')
 
             message = '\tblocking left\n'
@@ -390,7 +391,6 @@ class Server:
                 
     ## rolls for a player to win (1/10)
     def check_win(self, player, action):
-        print('\nSTATES:\n p1:\t', self.players[0], '\n p2:\t', self.players[1], '\n')
         print('\nPUNCH:')
         roll = int(random.uniform(0,self.ko_rate + 1))
         # if 0, 1   if 1, 0
@@ -401,8 +401,10 @@ class Server:
         message_type = 'action'
         # if action is punch left
         if action == 'q': 
+            # change block left time to 0
+            self.players[player][0] = 0
             # if other player is blocking left
-            if self.players[other_player] == 'block_left':
+            if self.players[other_player][0] + 3 < time.time():
                 # if we roll a 5, hit
                 if roll == 5:
                     message = '\tp' + str(player + 1) + ' land left punch\n'
@@ -416,8 +418,9 @@ class Server:
                 message = '\tp' + str(player + 1)  + ' left punch blocked\n'
         # if action is punch right
         else:
+            self.players[player][1] = 0
             # if other player is blocking right
-            if self.players[other_player] == 'block_right':
+            if self.players[other_player][1] + 3 < time.time():
                 # if we roll a 5, hit
                 if roll == 5:
                     message = '\tp' + str(player + 1) + ' land right punch\n'
@@ -432,6 +435,8 @@ class Server:
 
         # print message on leader 
         print(message)
+        print('\nCURRENT TIME: \t', int(time.time()))
+        print('\n[LEFT, RIGHT] TIMESTAMPS:\n p1:\t', self.players[0], '\n p2:\t', self.players[1], '\n')
 
         # send message to all clients
         for i in range(5,7):
@@ -447,12 +452,13 @@ class Server:
             for i in range(self.processes):
                 if str(i) != self.id:
                     message = create_end_message(str(i))
+#                    print('sending message to', i, ':', message)
                     self.send_message(message)
 
-        else:
-            for i in range(5,7):
-                message = create_server_message(str(i), 'quit', '')
-                self.send_message(message)
+#        else:
+#            for i in range(5,7):
+#                message = create_server_message(str(i), 'quit', '')
+#                self.send_message(message)
 
         while len(self.log) - 1 > self.commit_index:
             self.log.pop()
