@@ -22,19 +22,19 @@ class Server:
         self.simulate = False
 
         # get info about client for sqs queue and s3 stable storage
-        self.region = 'us-west-2'
-        self.secret = '40P15GW5em0iibFLEsX0a1t6eBSanwmEyGL8sy+q'
-        self.public = 'AKIAIVCVGBRSVQKRNB3Q'
+        self.region = ''
+        self.secret = ''
+        self.public = ''
 
         # create list of queue urls
         self.q_url = list()
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue0')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue1')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue2')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue3')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue4')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue5')
-        self.q_url.append('https://sqs.us-east-2.amazonaws.com/044793243766/queue6')
+        self.q_url.append('')
+        self.q_url.append('')
+        self.q_url.append('')
+        self.q_url.append('')
+        self.q_url.append('')
+        self.q_url.append('')
+        self.q_url.append('')
 
         # get access to sqs queue
         self.sqs = boto3.client('sqs', self.region, aws_secret_access_key=self.secret, aws_access_key_id=self.public)
